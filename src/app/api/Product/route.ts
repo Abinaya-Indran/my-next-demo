@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     const newProduct = { name, price, createdAt: new Date(), updatedAt: new Date() };
     const result = await db.collection("products").insertOne(newProduct);
 
-    return new Response(JSON.stringify(result.ops[0]), { status: 201 });
+    // return new Response(JSON.stringify(result.ops[0]), { status: 201 });
   } catch (error) {
     return new Response(JSON.stringify({ error: "Failed to create product" }), {
       status: 500,
