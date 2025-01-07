@@ -1,5 +1,5 @@
 // src/app/api/Product/route.ts
-import { connectToDatabase } from "@/lib/db";
+import { connectToDatabase } from "../../../../lib/db";
 import { ObjectId } from "mongodb";
 
 // GET: Fetch all products
