@@ -1,31 +1,21 @@
 // lib/db.ts
-import { MongoClient, Db } from "mongodb";
+import mongoose from "mongoose";
 
-let cachedClient: MongoClient | null = null;
-let cachedDb: Db | null = null;
+const MONGO_URI = process.env.MONGODB_URI
 
 export async function connectToDatabase() {
-  if (cachedClient && cachedDb) {
-    return { client: cachedClient, db: cachedDb };
+  const databaseStatus = mongoose.connection.readyState
+
+  if (databaseStatus === 1) {
+    console.log('MongoDB connected!')
   }
 
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    throw new Error("Please define the MONGODB_URI environment variable");
+  try {
+    await mongoose.connect(MONGO_URI!, {
+      dbName: 'NextJSAPI',
+      bufferCommands: true
+    })
+  } catch (error) {
+    console.log(error)
   }
-
-  const client = new MongoClient(uri);
-  await client.connect();
-
-  const dbName = process.env.MONGODB_DB;
-  if (!dbName) {
-    throw new Error("Please define the MONGODB_DB environment variable");
-  }
-
-  const db = client.db(dbName);
-
-  cachedClient = client;
-  cachedDb = db;
-
-  return { client, db };
 }

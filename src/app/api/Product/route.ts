@@ -1,14 +1,14 @@
 // src/app/api/Product/route.ts
+import { NextResponse } from "next/server";
 import { connectToDatabase } from "../../../../lib/db";
 import Product from "../../../../models/product";
 import { ObjectId } from "mongodb";
 
-// GET: Fetch all products
 export async function GET() {
   try {
-    const { db } = await connectToDatabase();
-    const products = await db.collection("products").find({}).toArray();
-    return new Response(JSON.stringify(products), { status: 200 });
+    await connectToDatabase();
+    const products = await Product.find()
+    return NextResponse.json(products, { status: 200 });
   } catch (error) {
     return new Response(JSON.stringify({ error: "Failed to fetch products" }), {
       status: 500,
@@ -16,24 +16,16 @@ export async function GET() {
   }
 }
 
-// POST: Create a new product
 export async function POST(req: Request) {
   try {
-    const { db } = await connectToDatabase();
+    await connectToDatabase();
     const body = await req.json();
-    const { name, price } = body;
+    const newProduct = new Product(body);
+    await newProduct.save();
 
-    if (!name || !price) {
-      return new Response(JSON.stringify({ error: "Name and price are required" }), {
-        status: 400,
-      });
-    }
+    return NextResponse.json(Product, {status:200});
 
-    const newProduct = { name, price, createdAt: new Date(), updatedAt: new Date() };
-    const result = await db.collection("products").insertOne(newProduct);
-
-    // return new Response(JSON.stringify(result.ops[0]), { status: 201 });
-  } catch (error) {
+  } catch (error:any) {
     return new Response(JSON.stringify({ error: "Failed to create product" }), {
       status: 500,
     });
@@ -41,65 +33,90 @@ export async function POST(req: Request) {
 }
 
 // PATCH: Update a product by ID
-export async function PATCH(req: Request) {
+export const PATCH = async (req: Request) => {
   try {
-    const { db } = await connectToDatabase();
-    const body = await req.json();
-    const { id, name, price } = body;
+    const body = await req.json(); // Parse the request body
+    const { ProductId, newProductName } = body; // Extract the fields
 
-    if (!id || (!name && !price)) {
-      return new Response(JSON.stringify({ error: "Invalid request data" }), {
-        status: 400,
-      });
+    await connectToDatabase(); // Connect to the database
+
+    // Validate input
+    if (!ProductId || !newProductName) {
+      return new Response(
+        JSON.stringify({ message: "ProductId and newProductName are required" }),
+        { status: 400 }
+      );
     }
 
-    const updateFields: any = { updatedAt: new Date() };
-    if (name) updateFields.name = name;
-    if (price) updateFields.price = price;
+    // Update the product
+    const updateProduct = await Product.findByIdAndUpdate(
+      ProductId, // Use ProductId to find the product
+      { name: newProductName }, // Update the product's name
+      { new: true } // Return the updated document
+    );
 
-    const result = await db
-      .collection("products")
-      .updateOne({ _id: new ObjectId(id) }, { $set: updateFields });
-
-    if (result.matchedCount === 0) {
-      return new Response(JSON.stringify({ error: "Product not found" }), { status: 404 });
+    // Check if the product exists
+    if (!updateProduct) {
+      return new Response(
+        JSON.stringify({ message: "Product not found in DB" }),
+        { status: 404 }
+      );
     }
 
-    return new Response(JSON.stringify({ message: "Product updated successfully" }), {
-      status: 200,
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: "Failed to update product" }), {
-      status: 500,
-    });
+    // Return success response
+    return new Response(
+      JSON.stringify({ message: "Product updated", product: updateProduct }),
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("Error updating product:", error);
+    return new Response(
+      JSON.stringify({ message: "Error updating product", error: error.message }),
+      { status: 500 }
+    );
   }
-}
+};
 
-// DELETE: Delete a product by ID
+
 export async function DELETE(req: Request) {
   try {
-    const { db } = await connectToDatabase();
-    const url = new URL(req.url);
-    const id = url.searchParams.get("id");
+    // Connect to the database
+    await connectToDatabase();
 
-    if (!id) {
-      return new Response(JSON.stringify({ error: "Product ID is required" }), {
-        status: 400,
-      });
+    // Parse the JSON body
+    const body = await req.json();
+    const { ProductID } = body;
+
+    // Validate ProductID
+    if (!ProductID) {
+      return new Response(
+        JSON.stringify({ error: "Product ID is required" }),
+        { status: 400 }
+      );
     }
 
-    const result = await db.collection("products").deleteOne({ _id: new ObjectId(id) });
+    // Attempt to delete the product by ID
+    const result = await Product.findByIdAndDelete(ProductID);
 
-    if (result.deletedCount === 0) {
-      return new Response(JSON.stringify({ error: "Product not found" }), { status: 404 });
+    // Check if the product was found and deleted
+    if (!result) {
+      return new Response(
+        JSON.stringify({ error: "Product not found" }),
+        { status: 404 }
+      );
     }
 
-    return new Response(JSON.stringify({ message: "Product deleted successfully" }), {
-      status: 200,
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: "Failed to delete product" }), {
-      status: 500,
-    });
+    // Return success response
+    return NextResponse.json(
+      { message: "Product deleted successfully" },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    // Return failure response with error details
+    return new Response(
+      JSON.stringify({ error: "Failed to delete product", details: error.message }),
+      { status: 500 }
+    );
   }
 }
+
